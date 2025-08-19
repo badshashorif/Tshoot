@@ -149,7 +149,7 @@ interface <pppoe/lan>
   curl https://ipinfo.io/json
   ```
 
-  দেখুন **country=BD**, org=**AS134732 Dot Internet** ইত্যাদি ঠিক আছে কিনা।
+  দেখুন **country=BD**, org=**AS17471 Grameen Cybernet** ইত্যাদি ঠিক আছে কিনা।
 
 * **Update/Correct**:
 
@@ -160,15 +160,15 @@ interface <pppoe/lan>
   * **IRR route** object ও **RPKI ROA** সঠিক আছে কিনা দেখুন
   * WHOIS-এ আপনার **org/descr** ISP হিসেবে পরিষ্কার করুন
 
-* **Toffee/CDN-এ টিকিট**: আপনার প্রিফিক্স(/22–/24), egress /32 লিস্ট, ASN **AS134732**, উদাহরণ **timestamp, public IP, HTTP status (403/0)**, এবং DevTools-এর **HAR** অ্যাটাচ করুন। রিক্ল্যাসিফাই করতে বলুন।
+* **Toffee/CDN-এ টিকিট**: আপনার প্রিফিক্স(/22–/24), egress /32 লিস্ট, ASN **AS17471**, উদাহরণ **timestamp, public IP, HTTP status (403/0)**, এবং DevTools-এর **HAR** অ্যাটাচ করুন। রিক্ল্যাসিফাই করতে বলুন।
 
 **ইমেল টেমপ্লেট (সংক্ষিপ্ত):**
 
 ```
-Subject: Playback blocked from AS134732 (Dot Internet) – IP reclassification request
+Subject: Playback blocked from AS17471 (Grameen Cybernet) – IP reclassification request
 
 Hello Toffee/CDN team,
-From our ISP prefix <x.x.x.0/22, y.y.y.0/24> (AS134732), Toffee webpage loads but video segments fail (HTTP 403 / request fails). From other ISPs, it plays fine.
+From our ISP prefix <x.x.x.0/22, y.y.y.0/24> (AS17471), Toffee webpage loads but video segments fail (HTTP 403 / request fails). From other ISPs, it plays fine.
 
 Please verify and reclassify our egress IPs as ISP residential/business, not hosting/VPN. 
 Sample IPs: A.B.C.D, E.F.G.H
@@ -178,7 +178,7 @@ Failing hosts: <list from DevTools>
 We can provide HAR/pcap if needed.
 
 Thanks,
-Dot Internet (AS134732)
+Grameen Cybernet (AS17471)
 NOC: noc@...
 ```
 
