@@ -1,7 +1,8 @@
 1. DEVICE_LOOPBACK_IP: 172.30.0.0/16
-  Start range LOOPBACK_IP for CORE_RTR: 172.30.0.0/24
+  Start range LOOPBACK_IP for CORE & NAT RTR: 172.30.0.0/24
   Start range LOOPBACK_IP for ACCESS_RTR: 172.30.100.0/22
   Start range LOOPBACK_IP for POP_SWITCH: 172.30.30.0/22
+  Start range LOOPBACK_IP for POP_SWITCH: 172.30.50.0/22
   
 
 2. ACCESS_RTR SERVICE VLAN & PEERING P2P IP:
@@ -10,23 +11,185 @@ b) CDN:- VLAN: 3201-3300, IP: 172.26.0.0/16
 c) FNA:- VLAN: 3401-3500, IP: 172.27.0.0/16
 d) GGC:- VLAN: 3601-3700, IP: 172.28.0.0/16
 e) BDIX:- VLAN: 3801-3900, IP: 172.29.0.0/16		
-  
+
+PACKAGE_LIST:
+500TK_REGULAR-Extream_Regular-500 TK
+30M-Extream_Family-600 TK
+40M-Extream_Prime-700 TK
+50M-Extream_Freedom-800 TK
+60Extream_Silver-1000 TK
+70M-Extream_Gold- 1200 TK
+80M-Extream_Platinum- 1500 TK
+100M-Extream_Diamond- 2000 TK
+
 3. PPPoE_POOL:
   EXPIRED_POOL: 10.250.0.0/16
-  20M_EXTREAM_REGULAR: 10.11.0.0/16
-  30M_EXTREAM_FAMILY: 10.12.0.0/16
-  40M_EXTREAM_FREEDOM: 10.13.0.0/16
-  50M_EXTREAM_SILVER: 10.14.0.0/16
-  60M_EXTREAM_GOLD: 10.15.0.0/16
-  70M_EXTREAM_PLATINUM: 10.16.0.0/16
-  80M_EXTREAM_DIAMOND: 10.17.0.0/16
-  
+  500TK_REGULAR: 10.11.0.0/16
+  600TK_FAMILY: 10.12.0.0/16
+  700TK_PRIME: 10.13.0.0/16
+  800TK_FREEDOM: 10.14.0.0/16
+  1000TK_SILVER: 10.15.0.0/16
+  1200TK_GOLD: 10.16.0.0/16
+  1500TK_PLATINUM: 10.17.0.0/16
+  2000TK_DIAMOND: 10.18.0.0/16
+
+POOL_CONFIG_SCRIPT OF ACCESS_RTR_1
+====================================
+
 /ip pool
 add name=EXPIRED_POOL ranges=10.250.0.0/22
-add name="20M_EXTREAM_REGULAR" ranges=10.11.0.0/16
-add name="30M_EXTREAM_FAMILY" ranges=10.11.4.0/22
-add name="40M_EXTREAM_FAMILY" ranges=10.12.4.0/22
-add name="Speed : 400kbps" ranges=10.13.4.0/22
-add name="Speed : 480kbps" ranges=10.14.4.0/22
-add name="Speed : 576kbps" ranges=10.15.4.0/22
-add name="Speed : 768kbps" ranges=10.16.4.0/22
+add name="500TK_REGULAR" ranges=10.11.0.0/22
+add name="600TK_FAMILY" ranges=10.12.0.0/22
+add name="700TK_PRIME" ranges=10.13.0.0/22
+add name="800TK_FREEDOM" ranges=10.14.0.0/22
+add name="1000TK_SILVER" ranges=10.15.0.0/22
+add name="1200TK_GOLD" ranges=10.16.0.0/22
+add name="1500TK_PLATINUM" ranges=10.17.0.0/22
+add name="2000TK_DIAMOND" ranges=10.18.0.0/22
+
+add address=10.10.0.0/16 list=500TK_REGULAR
+add address=10.11.0.0/16 list=600TK_FAMILY
+add address=10.12.0.0/16 list=700TK_PRIME
+add address=10.13.0.0/16 list=800TK_FREEDOM
+add address=10.14.0.0/16 list=1000TK_SILVER
+add address=10.15.0.0/16 list=1200TK_GOLD
+add address=10.16.0.0/16 list=1500TK_PLATINUM
+add address=10.17.0.0/16 list=2000TK_DIAMOND
+
+/ip firewall mangle
+add action=mark-packet chain=postrouting new-packet-mark=ICMP passthrough=no \
+    protocol=icmp
+add action=log chain=prerouting connection-state=established protocol=tcp \
+    src-address=10.0.0.0/8 tcp-flags=fin
+add action=mark-packet chain=forward comment="Bandwidth Limit" \
+    new-packet-mark=500TK_REGULAR_UPLOAD passthrough=no protocol=!icmp \
+    src-address-list=500TK_REGULAR
+add action=mark-packet chain=forward dst-address-list=500TK_REGULAR \
+    new-packet-mark=500TK_REGULAR_DOWNLOAD passthrough=no protocol=!icmp
+add action=mark-packet chain=forward new-packet-mark=600TK_FAMILY_UPLOAD \
+    passthrough=no protocol=!icmp src-address-list=600TK_FAMILY
+add action=mark-packet chain=forward dst-address-list=600TK_FAMILY \
+    new-packet-mark=600TK_FAMILY_DOWNLOAD passthrough=no protocol=!icmp
+add action=mark-packet chain=forward new-packet-mark=700TK_PRIME_UPLOAD \
+    passthrough=no protocol=!icmp src-address-list=700TK_PRIME
+add action=mark-packet chain=forward dst-address-list=700TK_PRIME \
+    new-packet-mark=700TK_PRIME_DOWNLOAD passthrough=no protocol=!icmp
+add action=mark-packet chain=forward new-packet-mark=800TK_FREEDOM_UPLOAD \
+    passthrough=no protocol=!icmp src-address-list=800TK_FREEDOM
+add action=mark-packet chain=forward dst-address-list=800TK_FREEDOM \
+    new-packet-mark=800TK_FREEDOM_DOWNLOAD passthrough=no protocol=!icmp
+add action=mark-packet chain=forward new-packet-mark=1000TK_SILVER_UPLOAD \
+    passthrough=no protocol=!icmp src-address-list=1000TK_SILVER
+add action=mark-packet chain=forward dst-address-list=1000TK_SILVER \
+    new-packet-mark=1000TK_SILVER_DOWNLOAD passthrough=no protocol=!icmp
+add action=mark-packet chain=forward new-packet-mark=1200TK_GOLD_UPLOAD \
+    passthrough=no protocol=!icmp src-address-list=1200TK_GOLD
+add action=mark-packet chain=forward dst-address-list=1200TK_GOLD \
+    new-packet-mark=1200TK_GOLD_DOWNLOAD passthrough=no protocol=!icmp
+add action=mark-packet chain=forward new-packet-mark=1500TK_PLATINUM_UPLOAD \
+    passthrough=no protocol=!icmp src-address-list=1500TK_PLATINUM
+add action=mark-packet chain=forward dst-address-list=1500TK_PLATINUM \
+    new-packet-mark=1500TK_PLATINUM_DOWNLOAD passthrough=no protocol=!icmp
+add action=mark-packet chain=forward new-packet-mark=2000TK_DIAMOND_UPLOAD \
+    passthrough=no protocol=!icmp src-address-list=2000TK_DIAMOND
+add action=mark-packet chain=forward dst-address-list=2000TK_DIAMOND \
+    new-packet-mark=2000TK_DIAMOND_DOWNLOAD passthrough=no protocol=!icmp
+
+/queue type
+set 1 pfifo-limit=4096
+add kind=pcq name=500TK_REGULAR_DOWNLOAD pcq-burst-time=5s pcq-classifier=dst-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=500TK_REGULAR_UPLOAD pcq-classifier=src-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=600TK_FAMILY_DOWNLOAD pcq-classifier=dst-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=600TK_FAMILY_UPLOAD pcq-classifier=src-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=700TK_PRIME_DOWNLOAD pcq-classifier=dst-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=700TK_PRIME_UPLOAD pcq-classifier=src-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=800TK_FREEDOM_DOWNLOAD pcq-classifier=dst-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=800TK_FREEDOM_UPLOAD pcq-classifier=src-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=1000TK_SILVER_DOWNLOAD pcq-classifier=dst-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=1000TK_SILVER_UPLOAD pcq-classifier=src-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=1500TK_REGULAR_DOWNLOAD pcq-classifier=dst-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=1500TK_REGULAR_UPLOAD pcq-classifier=src-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=1200TK_GOLD_DOWNLOAD pcq-classifier=dst-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=1200TK_GOLD_UPLOAD pcq-classifier=src-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=2000TK_DIAMOND_DOWNLOAD pcq-classifier=dst-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=pcq name=2000TK_DIAMOND_UPLOAD pcq-classifier=src-address \
+    pcq-dst-address6-mask=64 pcq-limit=100KiB pcq-rate=500M \
+    pcq-src-address6-mask=64 pcq-total-limit=1000000KiB
+add kind=fq-codel name=wan-queue-type
+
+/queue interface
+set ether1_1G queue=ethernet-default
+set sfp-sfpplus1_WAN_VXLAN_RR_1/3 queue=ethernet-default
+set sfp-sfpplus2_WAN_VXLAN_RR_1/4 queue=ethernet-default
+
+/queue tree
+add bucket-size=0.15 disabled=yes name=500TK_REGULAR_UPLOAD packet-mark=\
+    500TK_REGULAR_UPLOAD parent=sfp-sfpplus1_WAN_VXLAN_RR_1/3 priority=4 \
+    queue=500TK_REGULAR_UPLOAD
+add bucket-size=0.15 name=500TK_REGULAR_DOWNLOAD packet-mark=\
+    500TK_REGULAR_DOWNLOAD parent=global priority=4 queue=500TK_REGULAR_DOWNLOAD
+add bucket-size=0.15 name=600TK_FAMILY_DOWNLOAD packet-mark=\
+    600TK_FAMILY_DOWNLOAD parent=global priority=4 queue=600TK_FAMILY_DOWNLOAD
+add bucket-size=0.15 disabled=yes name=600TK_FAMILY_UPLOAD packet-mark=\
+    600TK_FAMILY_UPLOAD parent=sfp-sfpplus1_WAN_VXLAN_RR_1/3 priority=4 \
+    queue=600TK_FAMILY_UPLOAD
+add bucket-size=0.2 name=700TK_PRIME_DOWNLOAD packet-mark=\
+    700TK_PRIME_DOWNLOAD parent=global priority=3 queue=700TK_PRIME_DOWNLOAD
+add bucket-size=0.2 disabled=yes name=700TK_PRIME_UPLOAD packet-mark=\
+    700TK_PRIME_UPLOAD parent=sfp-sfpplus1_WAN_VXLAN_RR_1/3 priority=3 \
+    queue=700TK_PRIME_UPLOAD
+add bucket-size=0.2 name=800TK_FREEDOM_DOWNLOAD packet-mark=\
+    800TK_FREEDOM_DOWNLOAD parent=global priority=3 queue=800TK_FREEDOM_DOWNLOAD
+add bucket-size=0.2 disabled=yes name=800TK_FREEDOM_UPLOAD packet-mark=\
+    800TK_FREEDOM_UPLOAD parent=sfp-sfpplus1_WAN_VXLAN_RR_1/3 priority=3 \
+    queue=800TK_FREEDOM_UPLOAD
+add bucket-size=0.22 name=1000TK_SILVER_DOWNLOAD packet-mark=\
+    1000TK_SILVER_DOWNLOAD parent=global priority=2 queue=1000TK_SILVERDOWNLOAD
+add bucket-size=0.22 disabled=yes name=1000TK_SILVER_UPLOAD packet-mark=\
+    1000TK_SILVER_UPLOAD parent=sfp-sfpplus1_WAN_VXLAN_RR_1/3 priority=2 \
+    queue=1000TK_SILVER_UPLOAD
+add bucket-size=0.22 name=1200TK_GOLD_DOWNLOAD packet-mark=\
+    1200TK_GOLD_DOWNLOAD parent=global priority=2 queue=1500TK_REGULAR_DOWNLOAD
+add bucket-size=0.22 disabled=yes name=1200TK_GOLD_UPLOAD packet-mark=\
+    1200TK_GOLD_UPLOAD parent=sfp-sfpplus1_WAN_VXLAN_RR_1/3 priority=2 \
+    queue=1500TK_REGULAR_UPLOAD
+add bucket-size=0.22 disabled=yes name=1500TK_PLATINUM_UPLOAD packet-mark=\
+    1500TK_PLATINUM_UPLOAD parent=sfp-sfpplus1_WAN_VXLAN_RR_1/3 priority=1 \
+    queue=1200TK_GOLD_UPLOAD
+add bucket-size=0.22 name=1500TK_PLATINUM_DOWNLOAD packet-mark=\
+    1500TK_PLATINUM_DOWNLOAD parent=global priority=1 queue=1200TK_GOLD_DOWNLOAD
+add bucket-size=0.25 name=2000TK_DIAMOND_DOWNLOAD packet-mark=\
+    2000TK_DIAMOND_DOWNLOAD parent=global priority=1 queue=3000-DOWNLOAD
+add bucket-size=0.25 disabled=yes name=2000TK_DIAMOND_UPLOAD packet-mark=\
+    2000TK_DIAMOND_UPLOAD parent=sfp-sfpplus1_WAN_VXLAN_RR_1/3 priority=1 \
+    queue=2000TK_DIAMOND_UPLOAD
