@@ -29,7 +29,7 @@ BDIX  VLAN: 3801–3900   → 172.29.0.0/16
 
 | Package (Speed) | Profile Name      | Price (BDT) |
 | --------------- | ----------------- | ----------- |
-| 500TK Regular   | Extream\_Regular  | 500         |
+| 20M Regular   | Extream\_Regular  | 500         |
 | 30M Family      | Extream\_Family   | 600         |
 | 40M Prime       | Extream\_Prime    | 700         |
 | 50M Freedom     | Extream\_Freedom  | 800         |
