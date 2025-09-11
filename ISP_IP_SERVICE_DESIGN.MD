@@ -87,6 +87,8 @@ Expired Users     → 10.250.0.0/16
 
 ---
 
+## 🔹 IP POOL & BW Shaping Que configurations Example
+
 ```
 # ----------------------------
 # 1) PPPoE POOLS  (/16 blocks)
