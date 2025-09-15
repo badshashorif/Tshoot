@@ -1,0 +1,175 @@
+এই টপোলজি দিয়ে ক্লায়েন্টকে **দুই POP থেকে রিডান্ড্যান্ট ইন্টারনেট + /29 পাবলিক ব্লক** দিতে সবচেয়ে ক্লিন পদ্ধতি হলো:
+
+> **Routed /29 + eBGP দুই লিংক + ফায়ারওয়াল/স্বিচে গেটওয়ে ভার্চুয়াল IP (HSRP/VRRP)**
+
+এতে inbound/outbound দু’দিকেই অটো-ফেইলওভার হবে, NAT/পাবলিক ব্লক অপরিবর্তিত থাকবে, আর POP–ডাউন হলে রুট নিজে থেকেই সরে যাবে।
+
+---
+
+# ডিজাইন (এক নজরে)
+
+1. **লাস্ট-মাইল অ্যাড্রেসিং**
+
+* POP1↔CPE1 (কাস্টমার এজ): `/30` (বা `/31`) পয়েন্ট-টু-পয়েন্ট।
+* POP2↔CPE2: `/30` (বা `/31`) পয়েন্ট-টু-পয়েন্ট।
+* ক্লায়েন্টের **/29 পাবলিক ব্লক** (ধরা যাক `203.X.Y.Z/29`) **লেয়ার-৩ রাউটেড** হবে (ARP নয়) — এটাকে ফায়ারওয়ালের দিকে রুট করবেন।
+
+2. **রাউটিং**
+
+* **eBGP**: POP1↔CPE1 এবং POP2↔CPE2 — দুইটা সেশন।
+* POP গুলো **default-route (0/0)** পাঠাবে; কাস্টমার চাইলে প্রাইমারি/সেকেন্ডারি প্রেফারেন্স।
+* CPE দিক থেকে **`203.X.Y.Z/29`**–এর স্ট্যাটিক রুট থাকবে ফায়ারওয়ালের কাছে, আর BGP **out-filter** দিয়ে কেবল ওই `/29`–টাই অ্যাডভার্টাইজ হবে।
+* **BFD** অন রাখুন → 1–3 সেকেন্ডে ফেইলওভার।
+
+3. **অভ্যন্তরীণ লে-আউট**
+
+* দুইটা Cisco L3 সুইচে **HSRP/VRRP** (যেমন `10.0.10.1/29`)—এটাই ফায়ারওয়ালের **Outside গেটওয়ে**।
+* ফায়ারওয়ালের Outside ইন্টারফেস RFC1918 ট্রানজিট (যেমন `10.0.10.2/29`) ব্যবহার করবে; **/29 পাবলিক ব্লক Outside-এ বসাতে হবে না**।
+* ফায়ারওয়াল NAT pools/স্ট্যাটিক NAT–এ `203.X.Y.Z/29` ইউজ করুন। Outbound/Inbound দুটোই কাজ করবে কারণ CPE রাউটারগুলো ওই `/29`–টা ফায়ারওয়ালের দিকে রাউট করছে।
+
+4. **ফেইলওভার**
+
+* Outbound: CPE দুইটার BGP default; POP1-কে Local-Pref বেশি দিলে ট্র্যাফিক সেখান দিয়ে যাবে, ডাউন হলে POP2 তে শিফট।
+* Inbound: POP কোরে আপনারা (ISP) `/29`–টা কাস্টমারের দুই লিংকের দিকে **iBGP/স্ট্যাটিক + ট্র্যাকিং/BFD** দিয়ে বিজ্ঞাপন রাখবেন → যে লিংক আপ থাকে সেদিকেই ট্র্যাফিক যাবে।
+* **Health-track**: CPE–তে `/29`–এর static-route `check-gateway=ping` বা Netwatch দিয়ে ASA outside ping—ASA ডাউন হলে বিজ্ঞাপন উঠিয়ে নেবে (blackhole এড়াতে)।
+
+---
+
+## অ্যাড্রেসিং উদাহরণ
+
+* POP1↔CPE1: `103.74.0.0/30` (POP1= .1, CPE1= .2)
+* POP2↔CPE2: `103.74.0.4/30` (POP2= .5, CPE2= .6)
+* **Transit (CPE/L3SW↔Firewall)**: `10.0.10.0/29` → HSRP/VRRP VIP = `10.0.10.1`, ASA Outside = `10.0.10.2`
+* **Public /29**: `203.X.Y.Z/29` (ASA NAT pool/স্ট্যাটিক NAT–এ ব্যবহার হবে)
+
+---
+
+# কনফিগ টেমপ্লেট
+
+> **CPE = MikroTik**, **L3 সুইচ = Cisco**, **Firewall = Cisco ASA/FTD** (অন্য ভেন্ডর হলে নীতিটা একই)
+
+### MikroTik CPE1 (v7)
+
+```rsc
+# 1) পয়েন্ট-টু-পয়েন্ট
+/ip address add address=103.74.0.2/30 interface=ether1-POP1
+
+# 2) BFD (দ্রুত Failover)
+/routing bfd add min-rx=200ms min-tx=200ms detect-mult=5
+
+# 3) BGP টেমপ্লেট
+/routing bgp template add name=CUST as=65010 router-id=172.30.0.11
+
+# 4) রুট ফিল্টার (ইন: কেবল ডিফল্ট; আউট: কেবল /29)
+/routing filter rule
+add chain=IN-POP1  rule="if (dst==0.0.0.0/0) { set local-pref 200; accept; }"
+add chain=IN-POP1  action=discard
+add chain=OUT      rule="if (dst==203.X.Y.Z/29) { accept; }"
+add chain=OUT      action=discard
+
+# 5) BGP সংযোগ
+/routing bgp connection
+add name=POP1 remote.address=103.74.0.1 remote.as=<GCL_AS> \
+    address-families=ip template=CUST input.filter=IN-POP1 output.filter=OUT \
+    bfd=yes
+
+# 6) /29 ফায়ারওয়ালের দিকে স্ট্যাটিক রুট (Cisco HSRP VIP)
+/ip route add dst-address=203.X.Y.Z/29 gateway=10.0.10.1 check-gateway=ping
+```
+
+### MikroTik CPE2 (একই, শুধু POP2)
+
+/routing filter rule
+`IN-POP2` এ Local-Pref 100 (বা MED বেশি) দিয়ে **ব‍্যাকআপ** বানান।
+
+```rsc
+/ip address add address=103.74.0.6/30 interface=ether1-POP2
+/routing filter rule add chain=IN-POP2 rule="if (dst==0.0.0.0/0) { set local-pref 100; accept; }"
+...
+/routing bgp connection add name=POP2 remote.address=103.74.0.5 remote.as=<GCL_AS> \
+  address-families=ip template=CUST input.filter=IN-POP2 output.filter=OUT bfd=yes
+/ip route add dst-address=203.X.Y.Z/29 gateway=10.0.10.1 check-gateway=ping
+```
+
+> নোট: **/29 অ্যাডভার্টাইজ** হবে কেবল তখনই যখন ওপরের static route alive (ASA reachable)। Netwatch দরকার নেই।
+
+### Cisco L3 Switch Pair (HSRP উদাহরণ)
+
+```cisco
+interface Vlan10
+ description Transit_to_ASA_Outside
+ ip address 10.0.10.3 255.255.255.248
+ standby 10 ip 10.0.10.1
+ standby 10 priority 110 preempt
+! পিয়ার সুইচে 10.0.10.4/29 + priority 100
+
+! CPE1/2 দিকে routed interconnect (SVI বা routed port)
+interface Vlan100
+ description To_CPE1
+ ip address 10.0.100.1 255.255.255.252
+
+interface Vlan200
+ description To_CPE2
+ ip address 10.0.200.1 255.255.255.252
+```
+
+*(এই অংশ আপনি আপনার লে-আউট অনুযায়ী করবেন; মূল কথা—ASA-র বাইরে গেটওয়ে = 10.0.10.1 (HSRP/VRRP))*
+
+### Cisco ASA (সরল উদাহরণ)
+
+```asa
+interface Gig0/0
+ nameif outside
+ ip address 10.0.10.2 255.255.255.248
+ route outside 0.0.0.0 0.0.0.0 10.0.10.1
+
+! পাবলিক /29 NAT pool (PAT)
+/object network OBJ-PAT
+ range 203.X.Y.(Z+1) 203.X.Y.(Z+6)   ! /29 এর হোস্ট আইপিগুলো
+ nat (inside,outside) dynamic interface   ! বা dynamic PAT to the pool
+! স্ট্যাটিক NAT উদাহরণ (server)
+/object network WEB
+ host 192.168.1.10
+ nat (inside,outside) static 203.X.Y.(Z+2)
+```
+
+---
+
+## POP/ISP পাশ (আপনাদের করণীয়)
+
+* POP1/POP2 PE–তে CPE1/2–র সাথে **eBGP**।
+* **Only default** পাঠাবেন; ক্লায়েন্ট `/29` **IN** হিসেবে গ্রহণ করবেন (CPE থেকে)।
+* কোরে (iBGP) `/29`–টা **দুই POP-এ** প্রোপাগেট (ECMP বা primary/backup preference)।
+* **BFD** অন রাখুন POP↔CPE—লিংক ডাউন হলেই রুট বেরিয়ে যাবে, inbound/outbound দু’দিকেই ফেইলওভার হবে।
+
+---
+
+## টেস্ট প্ল্যান
+
+1. `CPE1`-এ `:put [/routing/route/print count-only where dst==0.0.0.0/0 active]` → 1
+2. `CPE1` থেকে `traceroute 8.8.8.8` → POP1 পাথ।
+3. POP1 লিংক শাট/ফাইবার খুলে দিন → **BFD** ১–৩ সেকেন্ডে ডিফল্ট POP2 তে সুইচ করবে।
+4. বাইরে থেকে `203.X.Y.(Z+2)` তে ping/HTTP → POP2 দিয়ে পৌঁছাচ্ছে কি না।
+5. ASA outside বন্ধ করলে (বা 10.0.10.2 পিং ড্রপ) → CPE–র static `/29` route ডাউন হবে → upstream এ `/29` withdraw → **inbound blackhole হবে না**।
+
+---
+
+## যদি BGP সম্ভব না হয় (ফলব্যাক)
+
+* CPE–তে:
+
+  * `ip route add dst=0.0.0.0/0 gateway=POP1 distance=1 check-gateway=ping`
+  * `ip route add dst=0.0.0.0/0 gateway=POP2 distance=10`
+* ISP কোরে `/29`–টা **দুই POP**–এ স্ট্যাটিক/ইন্টেরনাল রাউটিং দিয়ে প্রোপাগেট (primary/backup metric)।
+* ফেইলওভার হবে, তবে BGP+BFD এর মতো ফাস্ট/ক্লিন হবে না।
+
+---
+
+### TL;DR
+
+* **Routed /29**, ASA–তে NAT;
+* **দুই POP eBGP + BFD**, কাস্টমারের CPE তে `/29` → ASA গেটওয়ে (HSRP/VRRP) স্ট্যাটিক রুট;
+* POP কোরে `/29` দুই লিংকে প্রোপাগেট;
+* ফলে **একই পাবলিক ব্লক** অক্ষুণ্ণ রেখে **ফাস্ট ফেইলওভার + রিডান্ড্যান্সি** পাবেন।
+
+আপনি চাইলে আপনার আসল IP/AS নম্বর দিয়ে **রেডি কনফিগ** বানিয়ে দিতে পারি—POP/CPE/ASA তিন দিকের জন্যই।
