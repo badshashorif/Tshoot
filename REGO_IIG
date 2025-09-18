@@ -1,0 +1,128 @@
+বোঝেছি—REGO upstream-এ **VLAN 880 (172.18.28.205)** কে Primary আর **VLAN 714 (172.18.27.141)** কে Secondary করতে চান, যাতে **upload + download—দুই ট্র্যাফিকই 880 দিয়ে** যায়।
+
+এটা করতে দুই দিক টিউন করুন:
+
+1. **Download (আপনার আউটগোয়িং ট্রাফিকের রিটার্ন পাথ বাছাই)**
+   – 880 লিঙ্কে ইনবাউন্ড রুটে **বড় Local-Pref** দিন।
+   – 714 লিঙ্কে **ছোট Local-Pref** দিন।
+   (Local-Pref আপনার AS-এর ভিতরে বেস্টপাথ ঠিক করে → ডাউনলোড 880 নেবে)
+
+2. **Upload (আপনার অ্যাডভার্টাইজ করা রুট কীভাবে আপস্ট্রিম পছন্দ করবে)**
+   – 880 লিঙ্কে **ভাল অ্যাট্রিবিউট**: **no prepend, low MED**
+   – 714 লিঙ্কে **খারাপ অ্যাট্রিবিউট**: **AS-Path prepend, high MED**
+   (আপস্ট্রিম MED সম্মান করলে 880 বেছে নেবে; prepend থাকলে 714 কম প্রেফার্ড)
+
+নীচে ready-to-paste XR কনফিগ ডেল্টা দিলাম।
+
+---
+
+# কনফিগ পরিবর্তন (swap prio → 880 Primary)
+
+### 1) ইনবাউন্ড নীতিতে Local-Pref ঠিক করা
+
+```bash
+conf t
+! 880 (SEC) = PRIMARY  -> local-pref বেশি
+route-policy REGO-INT_SEC_IN
+  if destination in IIG-In then
+    set local-preference 800
+    pass
+  endif
+end-policy
+
+! 714 (PRI) = SECONDARY -> local-pref কম
+route-policy Rego-In
+  if destination in IIG-In then
+    set local-preference 400
+    pass
+  endif
+end-policy
+commit
+```
+
+> নোট: আপনার কনফিগে `IIG-In` prefix-set আছে এবং default-সহ দরকারি রুট কভার করে—সেটাই ব্যবহার করছি।
+
+### 2) আউটবাউন্ড নীতিতে MED/Prepend টিউন
+
+```bash
+conf t
+! 880 = Primary -> কোনো prepend নয়, MED কম
+route-policy REGO-INT_SEC_OUT
+  if destination in REGO-INT_SEC_OUT then
+    set med 50
+    pass
+  else
+    drop
+  endif
+end-policy
+
+! 714 = Secondary -> বেশি prepend + MED উঁচু
+route-policy Rego-Out
+  if destination in Rego-Out then
+    prepend as-path 17471 3
+    set med 1000
+    pass
+  else
+    drop
+  endif
+end-policy
+commit
+```
+
+### 3) পিয়ার সাইডে প্রয়োগ (neighbor statements অপরিবর্তিত থাকবে)
+
+আপনার কনফিগে ইতিমধ্যে ঠিক পলিসি নাম বসানো আছে:
+
+* `neighbor 172.18.28.205` (VLAN 880) → `REGO-INT_SEC_IN` / `REGO-INT_SEC_OUT`
+* `neighbor 172.18.27.141` (VLAN 714) → `Rego-In` / `Rego-Out`
+
+তাই ওপরের পলিসি আপডেট করলেই প্রায়োরিটি বদলে যাবে। চাইলে উভয় পিয়ারে সেফটি হিসেবে বাকি হার্ডেনিংও দিন:
+
+```bash
+conf t
+router bgp 17471
+ neighbor 172.18.28.205
+  bfd fast-detect
+  address-family ipv4 unicast
+   maximum-prefix 200000 80
+  !
+ !
+ neighbor 172.18.27.141
+  bfd fast-detect
+  address-family ipv4 unicast
+   maximum-prefix 200000 80
+  !
+ !
+commit
+```
+
+---
+
+# ভেরিফিকেশন (লাগামাত্র চেক করুন)
+
+```bash
+! ইনবাউন্ড পাথ 880 দিয়ে বেস্ট হচ্ছে?
+show bgp ipv4 unicast neighbors 172.18.28.205 routes | i "LocPrf|Network"
+show bgp ipv4 unicast neighbors 172.18.27.141 routes | i "LocPrf|Network"
+
+! আপনার গ্লোবাল টেবল/VRF যেখানে রুট লাগে, সেখানে bestpath কোন নেক্সট-হপ?
+show bgp ipv4 unicast <some-prefix> detail
+
+! আউটবাউন্ড অ্যাট্রিবিউট ঠিক বসেছে?
+show bgp ipv4 unicast neighbors 172.18.28.205 advertised-routes | i "AS path|MED"
+show bgp ipv4 unicast neighbors 172.18.27.141 advertised-routes | i "AS path|MED"
+
+! সেশন/প্রীফিক্স কাউন্ট সুস্থ?
+show bgp summary
+show bgp ipv4 unicast neighbors 172.18.28.205
+show bgp ipv4 unicast neighbors 172.18.27.141
+```
+
+**Expected ফলাফল**
+
+* 880 লিঙ্কে LocPrf > 714 (যেমন 800 > 400) → আপনার রাউটার ডাউনলোড 880 দিয়ে নেবে।
+* 880 বিজ্ঞাপনে **AS path ছোট** (no prepend) ও **MED ছোট (50)**; 714-এ **AS path বড় ( +3 prepend)** ও **MED 1000** → আপস্ট্রিম 880 বেছে নেবে।
+
+কিছু ISP MED উপেক্ষা করলে, প্রয়োজনে 714-এ prepend আরো বাড়াতে পারেন (৫ বা ৭), বা 880-এ **কমিউনিটি**/upstream-এর সাথে **local-pref agreement** ব্যবহার করতে পারেন।
+
+চলবে? প্রয়োজনে আমি আপনার লাইভ আউটপুট দেখে prepend/MED সংখ্যা টিউন করে দেবো।
