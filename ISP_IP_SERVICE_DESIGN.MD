@@ -9,6 +9,7 @@ CORE & NAT Routers     → 172.30.0.0/24
 ACCESS Routers         → 172.30.100.0/22
 POP Switch Block-1     → 172.30.30.0/22
 POP OLT Block-1        → 172.30.50.0/22
+SERVER MGMG BLOCK      → 172.30.172.0/22
 ```
 
 ---
