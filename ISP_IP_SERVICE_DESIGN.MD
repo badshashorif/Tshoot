@@ -14,14 +14,22 @@ SERVER MGMG BLOCK      → 172.30.172.0/22
 
 ---
 
-## 🔹 Access Router Service VLAN & Peering P2P IP Plan
+## 🔹 Retail Access Router & Corporate Router Service VLAN & Peering P2P IP Plan
 
 ```text
-INT   VLAN: 3101–3200   → 172.25.0.0/16
-GGC   VLAN: 3201–3300   → 172.26.0.0/16
-FNA   VLAN: 3301–3400   → 172.27.0.0/16
-BDIX  VLAN: 3401–3500   → 172.28.0.0/16
-CDN   VLAN: 3501–3600   → 172.29.0.0/16
+Retail ACCESS RTR:
+INT   VLAN: 3101–3200   → 172.25.0.0/17
+GGC   VLAN: 3201–3300   → 172.26.0.0/17
+FNA   VLAN: 3301–3400   → 172.27.0.0/17
+BDIX  VLAN: 3401–3500   → 172.28.0.0/17
+CDN   VLAN: 3501–3600   → 172.29.0.0/17
+
+Corporate POP RTR
+INT   VLAN: 3601–3700   → 172.25.128.0/17
+GGC   VLAN: 3701–3800   → 172.26.128.0/17
+FNA   VLAN: 3801–3900   → 172.27.128.0/17
+BDIX  VLAN: 3901–4000   → 172.28.128.0/17
+CDN   VLAN: 4101–4100   → 172.29.128.0/17
 ```
 
 ---
