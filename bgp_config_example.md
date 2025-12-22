@@ -40,6 +40,7 @@ neighbor 172.30.250.14
   address-family ipv4 unicast
    route-policy BDIX_VRF_IN in
    route-policy BDIX_VRF_OUT out
+   next-hop-self
    soft-reconfiguration inbound always
   !
 ```
@@ -111,6 +112,7 @@ vrf BDIX
   address-family ipv4 unicast
    route-policy IIG_BDIX_VRF_IN in
    route-policy IIG_BDIX_VRF_OUT out
+   next-hop-self
    soft-reconfiguration inbound always
   !
 ```
