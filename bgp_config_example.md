@@ -107,7 +107,7 @@ vrf BDIX
  neighbor 172.30.250.13
   remote-as 17471
   description BDIX_VRF_P2P
-  update-source TenGigE0/0/0/12.75
+  update-source TenGigE0/0/0/13.75
   address-family ipv4 unicast
    route-policy IIG_BDIX_VRF_IN in
    route-policy IIG_BDIX_VRF_OUT out
