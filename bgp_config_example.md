@@ -102,9 +102,9 @@ end-set
 ## 🔧 BGP Configuration — **FROM BDIX\_VRF\_END**
 
 ```bash
-#show running-config | begin neighbor 172.30.250.14
+#show running-config | begin neighbor 172.30.250.13
 vrf BDIX
- neighbor 172.30.250.14
+ neighbor 172.30.250.13
   remote-as 17471
   description BDIX_VRF_P2P
   update-source TenGigE0/0/0/12.75
