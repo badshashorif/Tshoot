@@ -64,7 +64,13 @@ Expired Users     → 10.250.0.0/16
 ```
 
 ---
+## 🔹 HOTSPOT IP Pool Allocation
 
+```text
+10.126.0.0/15
+```
+
+---
 ## 🔹 Visual Representation (Diagram Style)
 
 ```text
